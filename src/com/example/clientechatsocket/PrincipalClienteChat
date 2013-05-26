@@ -1,0 +1,186 @@
+package com.example.clientechatsocket;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.net.UnknownHostException;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
+import android.view.Menu;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+
+public class PrincipalClienteChat extends Activity {
+  private EditText texto; 
+	private TextView salidaTxt;
+	private TextView contador;
+	private Button btnEnviar;
+	Socket sk;
+	DataInputStream entrada;
+
+	public DataInputStream getEntrada() {
+		return entrada;
+	}
+
+	public void setEntrada(DataInputStream entrada) {
+		this.entrada = entrada;
+	}
+
+	DataOutputStream salida;
+
+	public String getMsg() {
+		return msg;
+	}
+
+	public void setMsg(String msg) {
+		this.msg = msg;
+	}
+
+	String msg = null;
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_principal_cliente_chat);
+		texto = (EditText) findViewById(R.id.EditText01);
+		salidaTxt = (TextView) findViewById(R.id.TextView01);
+		contador = (TextView) findViewById(R.id.textView1);
+
+		btnEnviar = (Button) findViewById(R.id.button1);
+		btnEnviar.setOnClickListener(new OnClickListener() {
+
+			public void onClick(View v) {
+				Log.v(getClass().getCanonicalName(), "Iniciando Socket...");
+				Log("Enviando... " + texto.getText().toString() + "\n");
+				ejecutaClienteSocket();
+			}
+		});
+
+		String ip = "192.168.0.12";
+		int puerto = 9831;
+		Log.v(this.getClass().getClass().getCanonicalName(), "Socket " + ip
+				+ " " + puerto);
+		try {
+			sk = new Socket(ip, puerto);
+			Log.v(getClass().getCanonicalName(), "Se ha iniciado conexion...");
+			Log("Conexion con servidor: "+ip+" Puerto: "+puerto);
+			entrada = new DataInputStream(new BufferedInputStream(
+					sk.getInputStream()));
+			salida = new DataOutputStream(new BufferedOutputStream(
+					sk.getOutputStream()));
+
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+			salidaTxt.append(e.getMessage());
+		} catch (IOException e) {
+			e.printStackTrace();
+			salidaTxt.append(e.getMessage());
+		}
+
+		// ---------------------------------------------------------------
+		final Handler myHandler = new Handler();
+
+		(new Thread(new Runnable() {
+
+			public void run() {
+				while (true) {
+
+					String recibe;
+					try {
+						recibe = getEntrada().readUTF();
+						if (recibe != null) {
+							PrincipalClienteChat.this.setMsg(recibe);
+							Log.v(getClass().getCanonicalName(),
+									"Recibiendo datos.." + recibe);
+						}
+
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+
+					myHandler.post(new Runnable() {
+						public void run() {
+							actualizarMensajes();
+						}
+
+					});
+
+				}
+			}
+		})).start();
+
+		// ---------------------------------------------------------------
+		Log.v(getClass().getCanonicalName(),
+				"Terminando de iniciar componentes");
+	}
+
+	private void ejecutaClienteSocket() {
+		try {
+			Log.v(getClass().getCanonicalName(), "Enviando datos..."
+					+ texto.getText().toString());
+			salida.writeUTF(texto.getText().toString());
+			salida.flush();
+		} catch (Exception e) {
+			Log.v(this.getClass().getClass().getCanonicalName(), e.getMessage());
+		}
+
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		getMenuInflater().inflate(R.menu.activity_principal_cliente_chat, menu);
+		return true;
+	}
+
+	@Override
+	protected void onDestroy() {
+		// TODO Auto-generated method stub
+		super.onDestroy();
+		try {
+			sk.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	static int val = 0;
+
+	protected void Log(String dato) {
+		Log.v("Enviando a log valor: " + val, dato);
+		salidaTxt.append(dato + "\n");
+		val = val + 1;
+	}
+
+	static int cont = 0;
+
+	private void delay(long tiempo) {
+		try {
+			Thread.sleep(tiempo);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	public void actualizaContador() {
+		cont = cont + 1;
+		contador.setText(Integer.toString(cont));
+	}
+
+	private void actualizarMensajes() {
+		this.Log(getMsg());
+
+	}
+
+}
